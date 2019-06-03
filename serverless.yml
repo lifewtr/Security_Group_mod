@@ -1,0 +1,89 @@
+service: testsg2 # NOTE: update this with your service name
+
+plugins:
+  - serverless-python-requirements
+  - serverless-pseudo-parameters
+
+provider:  
+  name: aws
+  runtime: python3.6
+  #role: arn:aws:iam::411815166437:role/SG1_TEST
+  role: arn:aws:iam::#{AWS::AccountId}:role/${self:service}-LambdaExecutionRole23
+  memorySize: 128
+  timeout: 600
+  versionFunctions: false
+  region: ${opt:region, 'us-east-2'}
+  stage: ${opt:stage, 'dev'}
+
+functions:
+  test-sg:
+    handler: lambda_handler.lambda_handler
+    events:
+      - cloudwatchEvent:
+          name: modify_sg
+          event:
+            source:
+              - "aws.ec2"
+            detail-type:
+              - "AWS API Call via CloudTrail"
+            detail:
+              eventSource:
+                - "ec2.amazonaws.com"
+              eventName:
+                - "CreateSecurityGroup"
+                - "UpdateSecurityGroupRuleDescriptionsIngress"
+
+resources:
+  Resources:
+    LambdaExecutionRole:
+      Properties:
+        AssumeRolePolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+          Version: '2012-10-17'
+        Path: /
+        RoleName: ${self:service}-LambdaExecutionRole23
+      Type: AWS::IAM::Role
+
+
+    LambdaExecutionPolicy:
+      DependsOn:
+      - LambdaExecutionRole
+      Properties:
+        ManagedPolicyName: ${self:service}-LambdaExecutionPolicy23
+        PolicyDocument:
+          Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Resource:
+            - '*'
+            Sid: STSAssumeRole
+          - Action:
+            - ec2:RevokeSecurityGroupIngress
+            - ec2:AuthorizeSecurityGroupEgress
+            - ec2:AuthorizeSecurityGroupIngress
+            - ec2:UpdateSecurityGroupRuleDescriptionsEgress
+            - ec2:DescribeSecurityGroupReferences
+            - ec2:CreateSecurityGroup
+            - ec2:RevokeSecurityGroupEgress
+            - ec2:DeleteSecurityGroup
+            - ec2:ApplySecurityGroupsToClientVpnTargetNetwork
+            - ec2:DescribeSecurityGroups
+            - ec2:UpdateSecurityGroupRuleDescriptionsIngress
+            - ec2:DescribeStaleSecurityGroups
+            - logs:*
+            - events:*
+            Effect: Allow
+            Resource:
+            - '*'
+            Sid: IAMRoleForSg
+          Version: '2012-10-17'
+        Roles:
+        - Ref: LambdaExecutionRole
+      Type: AWS::IAM::ManagedPolicy
